@@ -19,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING
     },
     zip: {
-      type: DataTypes.STRING
+      type: DataTypes.INTEGER
     },
     location: {
       type: DataTypes.STRING
