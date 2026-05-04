@@ -1,113 +1,118 @@
-const { Sequelize } = require('sequelize');
+const Todo = require('../models/todo'); 
+const { redisClient } = require('../config/database'); 
 
 const TodoController = {
+
   createTodo: async (req, res) => {
-    const user_id = req.sub;
-    const { text, date } = req.body;
-    const { Todo } = req.app.locals.models;
-
-    await Todo.create({
-      text: text,
-      date: date,
-      completed: false,
-      user_id: user_id
-    })
-      .then((result) => {
-        return res.status(201).json(result);
-      })
-      .catch((error) => {
-        console.error('ADD TODO: ', error);
-        return res.status(500);
+    try {
+      const user_id = req.sub;
+      const { text, date } = req.body;
+      const result = await Todo.create({
+        text: text,
+        date: date,
+        completed: false,
+        user_id: user_id
       });
-  },
-  getAllTodo: async (req, res) => {
-    const user_id = req.sub;
-    const { Todo } = req.app.locals.models;
 
-    await Todo.findAll({
-      where: { user_id: user_id },
-      order: [['date', 'ASC']],
-      attributes: { exclude: ['user_id'] }
-    })
-      .then((result) => {
-        if (result) {
-          return res.status(200).json(result);
-        } else {
-          return res.status(404);
-        }
-      })
-      .catch((error) => {
-        console.error('GET ALL TODO: ', error);
-        return res.status(500);
-      });
-  },
-  editTodo: async (req, res) => {
-    const user_id = req.sub;
-    const query = { id: req.params.id, user_id: user_id };
-    const data = req.body;
-    const { Todo } = req.app.locals.models;
-
-    const result = await Todo.findOne({ where: query });
-    if (result) {
-      result.completed = data.completed ? data.completed : false;
-      result.text = data.text ? data.text : result.text;
-      result.date = data.date ? data.date : result.date;
-      await result
-        .save()
-        .then(() => {
-          return res.status(200).json(result);
-        })
-        .catch((error) => {
-          console.error('UPDATE TODO: ', error);
-          return res.status(500);
-        });
-    } else {
-      return res.status(404);
+      return res.status(201).json(result);
+    } catch (error) {
+      console.error('ADD TODO: ', error);
+      return res.status(500).json({ error: "Erreur serveur" });
     }
   },
-  deleteTodo: (req, res) => {
-    const user_id = req.sub;
-    const todo_id = req.params.id;
-    const query = { id: todo_id, user_id: user_id };
-    const { Todo } = req.app.locals.models;
 
-    Todo.destroy({
-      where: query
-    })
-      .then(() => {
-        return res.status(200).json({ id: todo_id });
-      })
-      .catch((error) => {
-        console.error('DELETE TODO: ', error);
-        return res.status(500);
-      });
+  getAllTodo: async (req, res) => {
+    try {
+      const user_id = req.sub;
+      const result = await Todo.find({ user_id: user_id })
+                               .sort({ date: 1 })
+                               .select('-user_id');
+
+      if (result) {
+        return res.status(200).json(result);
+      } else {
+        return res.status(404).json({ message: "Non trouvé" });
+      }
+    } catch (error) {
+      console.error('GET ALL TODO: ', error);
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
   },
-  getSearchTodo: async (req, res) => {
-    const user_id = req.sub;
-    const query = req.query.q;
-    const { Todo } = req.app.locals.models;
 
-    await Todo.findAll({
-      where: [
-        {
-          user_id: user_id
-        },
-        Sequelize.literal(`MATCH (text) AGAINST ('*${query}*' IN BOOLEAN MODE)`)
-      ],
-      order: [['date', 'ASC']],
-      attributes: { exclude: ['user_id'] }
-    })
-      .then((result) => {
-        if (result) {
-          return res.status(200).json(result);
-        } else {
-          return res.status(404);
-        }
+  editTodo: async (req, res) => {
+    try {
+      const user_id = req.sub;
+      const query = { _id: req.params.id, user_id: user_id };
+      const data = req.body;
+
+      const result = await Todo.findOne(query);
+
+      if (result) {
+        result.completed = data.completed !== undefined ? data.completed : result.completed;
+        result.text = data.text ? data.text : result.text;
+        result.date = data.date ? data.date : result.date;
+
+        await result.save();
+        return res.status(200).json(result);
+      } else {
+        return res.status(404).json({ message: "Non trouvé" });
+      }
+    } catch (error) {
+      console.error('UPDATE TODO: ', error);
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+
+  deleteTodo: async (req, res) => {
+    try {
+      const user_id = req.sub;
+      const todo_id = req.params.id;
+      const query = { _id: todo_id, user_id: user_id };
+
+      await Todo.deleteOne(query);
+      
+      return res.status(200).json({ id: todo_id });
+    } catch (error) {
+      console.error('DELETE TODO: ', error);
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+
+  getSearchTodo: async (req, res) => {
+    try {
+      const user_id = req.sub;
+      const query = req.query.q;
+
+      // On crée une clé unique pour cette recherche précise par cet utilisateur
+      const cacheKey = `search:${user_id}:${query}`;
+
+      // On vérifie si Redis a déjà la réponse en mémoire
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        // Si oui, on renvoie directement les données du cache
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+
+      // i == "case-insensitive"
+      const result = await Todo.find({
+        user_id: user_id,
+        text: { $regex: query, $options: 'i' }
       })
-      .catch((error) => {
-        console.error('SEARCH TODO: ', error);
-        return res.status(500);
-      });
+      .sort({ date: 1 })
+      .select('-user_id');
+
+      if (result) {
+        // On stocke le résultat de cette recherche dans Redis pour les prochaines fois (avec une expiration de 1 heure)
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: 3600 });
+        
+        return res.status(200).json(result);
+      } else {
+        return res.status(404).json({ message: "Non trouvé" });
+      }
+    } catch (error) {
+      console.error('SEARCH TODO: ', error);
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
   }
 };
 
