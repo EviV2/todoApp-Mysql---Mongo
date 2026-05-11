@@ -6,8 +6,8 @@ const cookieParser = require('cookie-parser');
 // Load env vars
 process.loadEnvFile('./.env');
 
-const { sequelize: db } = require('./config/database');
-const { initModels } = require('./models');
+//On importe notre fonction de connexion qu'on a créée dans database.js
+const { connectDB } = require('./config/database');
 const router = require('./routes');
 
 const PORT = process.env.PORT || '3000';
@@ -21,7 +21,7 @@ function createApp() {
 
   app = express();
 
-  // Serve frontend static files (useful in dev/prod, skipped in tests if you want)
+  // Serve frontend static files
   app.use(express.static(path.join(__dirname, '../dist')));
 
   app.use(express.json());
@@ -46,22 +46,14 @@ function createApp() {
 
 /**
  * Initialize DB + models and (optionally) start listening.
- * @param {{listen?: boolean, port?: string|number}} options
- * @returns {Promise<{app: import('express').Express, server?: import('http').Server, db: any}>}
  */
 async function initApp(options = {}) {
   const { listen = true, port = PORT } = options;
 
   const theApp = createApp();
 
-  await db.authenticate();
-
-  // Initialize all models & expose to controllers
-  const models = initModels(db);
-  theApp.locals.models = models;
-
-  // Sync schema (or run migrations if you prefer)
-  await db.sync();
+  //On lance la connexion à MongoDB et Redis en une seule ligne
+  await connectDB();
 
   if (listen) {
     server = theApp.listen(port, () => {
@@ -69,10 +61,10 @@ async function initApp(options = {}) {
     });
   }
 
-  return { app: theApp, server, db };
+  //On retourne uniquement l'app et le serveur
+  return { app: theApp, server };
 }
 
-/** Gracefully stop the server (useful in tests) */
 async function stopApp() {
   if (server) {
     await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
@@ -82,7 +74,6 @@ async function stopApp() {
 
 module.exports = { createApp, initApp, stopApp };
 
-// If run directly (node app.js), start the server.
 if (require.main === module) {
   initApp({ listen: true }).catch((err) => {
     console.error("Impossible de démarrer l'app:", err);

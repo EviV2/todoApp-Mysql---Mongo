@@ -1,4 +1,4 @@
-const Todo = require('../models/todo'); 
+const Todo = require('../models/todo.model'); 
 const { redisClient } = require('../config/database'); 
 
 const TodoController = {
@@ -82,11 +82,9 @@ const TodoController = {
     try {
       const user_id = req.sub;
       const query = req.query.q;
-
-      // On crée une clé unique pour cette recherche précise par cet utilisateur
       const cacheKey = `search:${user_id}:${query}`;
 
-      // On vérifie si Redis a déjà la réponse en mémoire
+      // check si redis deja en memoire
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         // Si oui, on renvoie directement les données du cache
@@ -102,7 +100,7 @@ const TodoController = {
       .select('-user_id');
 
       if (result) {
-        // On stocke le résultat de cette recherche dans Redis pour les prochaines fois (avec une expiration de 1 heure)
+        //une heure de cache dans redis
         await redisClient.set(cacheKey, JSON.stringify(result), { EX: 3600 });
         
         return res.status(200).json(result);
