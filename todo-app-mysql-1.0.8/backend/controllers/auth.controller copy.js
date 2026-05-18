@@ -1,8 +1,4 @@
 const bcrypt = require('bcrypt');
-const jsonwebtoken = require('jsonwebtoken');
-
-const { JWT_SECRET } = require('../config/keys');
-
 // remove password from user object
 const cleanUser = (user) => {
   // eslint-disable-next-line no-unused-vars

@@ -11,6 +11,7 @@ const cleanUser = (user) => {
 
 const UserController = {
   createUser: async (req, res) => {
+    console.log("Compte créé avec l'email :", req.body.email);
     try {
       const { email, password } = req.body;
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -22,6 +23,7 @@ const UserController = {
 
       return res.status(201).json({ user: cleanUser(result) });
     } catch (error) {
+      console.error("Erreur creation user :", error);
       if (error.code === 11000) {
         return res.status(409).json({ message: 'Email déjà utilisé' });
       }
@@ -45,6 +47,8 @@ const UserController = {
 
       user.name = req.body.name || user.name;
       user.address = req.body.address || user.address;
+      user.zip = req.body.zip || user.zip;
+      user.location = req.body.location || user.location;
       
       const result = await user.save();
       return res.status(200).json({ user: cleanUser(result) });

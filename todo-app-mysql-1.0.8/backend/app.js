@@ -27,6 +27,12 @@ function createApp() {
   app.use(express.json());
   app.use(cookieParser());
 
+  // ---> AJOUTE CE MOUCHARD JUSTE ICI <---
+  app.use((req, res, next) => {
+    console.log(`Requête de type : ${req.method} sur ${req.url}`);
+    next();
+  });
+  // -------------------------------------
   // API routes
   app.use(router);
 

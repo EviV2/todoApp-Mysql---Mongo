@@ -1,13 +1,11 @@
 const bcrypt = require('bcrypt');
-const jsonwebtoken = require('jsonwebtoken');
-
-const { JWT_SECRET } = require('../config/keys');
+const jsonwebtoken = require('jsonwebtoken'); 
 const User = require('../models/user.model');
+const JWT_SECRET = require('../config/keys').JWT_SECRET;
 
 const cleanUser = (user) => {
   const userObj = user.toObject();
   delete userObj.password;
-  delete userObj.__v;
   return userObj;
 };
 
@@ -21,9 +19,10 @@ const AuthController = {
           const user = cleanUser(result);
           
           const token = jsonwebtoken.sign({}, JWT_SECRET, {
-            subject: result._id.toString(),
-            expiresIn: '30d',
-            algorithm: 'HS256' 
+            subject: result._id.toString(), 
+            //valide 1 mois
+            expiresIn: 60 * 60 * 24 * 30 * 1,
+            algorithm: 'RS256'               
           });
           
           return res.status(200).json({ user, token });

@@ -1,6 +1,15 @@
 const Todo = require('../models/todo.model'); 
 const { redisClient } = require('../config/database'); 
 
+const cleanTodo = (todo) => {
+  const obj = todo.toObject();
+  return {
+    id: obj._id,
+    text: obj.text,
+    date: obj.date,
+    completed: obj.completed
+  };
+}
 const TodoController = {
 
   createTodo: async (req, res) => {
@@ -14,10 +23,10 @@ const TodoController = {
         user_id: user_id
       });
 
-      return res.status(201).json(result);
+      return res.status(201).json(cleanTodo(result));
     } catch (error) {
       console.error('ADD TODO: ', error);
-      return res.status(500).json({ error: "Erreur serveur" });
+      return res.status(500).json({ error: "Server error" });
     }
   },
 
@@ -27,15 +36,15 @@ const TodoController = {
       const result = await Todo.find({ user_id: user_id })
                                .sort({ date: 1 })
                                .select('-user_id');
-
+      console.log('GET ALL TODOdddddddddddddddddddddddddddddddddddddddddddddddd: ', result);
       if (result) {
-        return res.status(200).json(result);
+        return res.status(200).json(result.map(todo => cleanTodo(todo)));
       } else {
-        return res.status(404).json({ message: "Non trouvé" });
+        return res.status(404).json({ message: "Not found" });
       }
     } catch (error) {
       console.error('GET ALL TODO: ', error);
-      return res.status(500).json({ error: "Erreur serveur" });
+      return res.status(500).json({ error: "Server error" });
     }
   },
 
@@ -53,7 +62,7 @@ const TodoController = {
         result.date = data.date ? data.date : result.date;
 
         await result.save();
-        return res.status(200).json(result);
+        return res.status(200).json(cleanTodo(result));
       } else {
         return res.status(404).json({ message: "Non trouvé" });
       }
@@ -91,7 +100,7 @@ const TodoController = {
         return res.status(200).json(JSON.parse(cachedData));
       }
 
-      // i == "case-insensitive"
+      // i = "case-insensitive" 
       const result = await Todo.find({
         user_id: user_id,
         text: { $regex: query, $options: 'i' }
@@ -115,3 +124,4 @@ const TodoController = {
 };
 
 module.exports = TodoController;
+

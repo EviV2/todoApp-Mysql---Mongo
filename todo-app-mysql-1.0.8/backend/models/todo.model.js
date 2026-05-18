@@ -17,7 +17,7 @@ const todoSchema = new mongoose.Schema({
   user_id: {
     //foreign key
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // ref a model user
+    ref: 'User', 
     required: true
   }
 }, { 
